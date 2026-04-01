@@ -158,7 +158,3 @@ Per storyboard (5 panels):
 Total: ~**$0.42 per storyboard**
 
 ---
-
-## License
-
-MIT
