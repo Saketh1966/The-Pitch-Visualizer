@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pitch Visualizer — Story to Storyboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0b;
+      --surface: #111113;
+      --surface2: #1a1a1e;
+      --border: rgba(255,255,255,0.07);
+      --border-lit: rgba(255,255,255,0.15);
+      --gold: #c9a84c;
+      --gold-dim: rgba(201,168,76,0.2);
+      --gold-glow: rgba(201,168,76,0.08);
+      --text: #e8e4dc;
+      --text-dim: rgba(232,228,220,0.45);
+      --text-mid: rgba(232,228,220,0.7);
+      --mono: 'DM Mono', monospace;
+      --serif: 'Cormorant Garamond', serif;
+      --panel-w: 560px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--serif);
+      overflow-x: hidden;
+    }
+
+    /* grain overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 999; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.35;
+    }
+
+    /* ─── HEADER ─── */
+    header {
+      padding: 3rem 4rem 0;
+      display: flex;
+      align-items: flex-end;
+      gap: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 2rem;
+    }
+    .logo-mark {
+      width: 48px; height: 48px;
+      border: 1px solid var(--gold);
+      display: grid; place-items: center;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em;
+      color: var(--gold); flex-shrink: 0;
+    }
+    .logo-text h1 {
+      font-size: 2rem; font-weight: 300; letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    .logo-text h1 span { font-style: italic; color: var(--gold); }
+    .logo-text p {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--text-dim); margin-top: 4px;
+    }
+
+    /* ─── MAIN LAYOUT ─── */
+    main {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      min-height: calc(100vh - 100px);
+    }
+
+    /* ─── SIDEBAR ─── */
+    aside {
+      border-right: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      display: flex; flex-direction: column; gap: 1.8rem;
+      position: sticky; top: 0; height: calc(100vh - 100px); overflow-y: auto;
+    }
+
+    .field-group label {
+      display: block;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--gold);
+      margin-bottom: 0.6rem;
+    }
+
+    textarea {
+      width: 100%; min-height: 180px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text); font-family: var(--serif); font-size: 1rem; line-height: 1.6;
+      padding: 1rem; resize: vertical;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    textarea:focus { border-color: var(--border-lit); }
+    textarea::placeholder { color: var(--text-dim); font-style: italic; }
+
+    .style-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+    }
+    .style-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text-mid); font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0.6rem 0.5rem; cursor: pointer; text-align: center;
+      transition: all 0.15s; border-radius: 1px;
+    }
+    .style-btn:hover { border-color: var(--border-lit); color: var(--text); }
+    .style-btn.active {
+      border-color: var(--gold); color: var(--gold);
+      background: var(--gold-glow);
+    }
+
+    .generate-btn {
+      width: 100%; padding: 1rem;
+      background: transparent; border: 1px solid var(--gold);
+      color: var(--gold); font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: all 0.3s;
+    }
+    .generate-btn::before {
+      content: ''; position: absolute; inset: 0;
+      background: var(--gold); transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+    .generate-btn:hover::before { transform: translateX(0); }
+    .generate-btn:hover { color: var(--bg); }
+    .generate-btn span { position: relative; z-index: 1; }
+    .generate-btn:disabled {
+      opacity: 0.4; cursor: not-allowed;
+    }
+    .generate-btn:disabled::before { display: none; }
+
+    .status-log {
+      font-family: var(--mono); font-size: 10px; line-height: 1.8;
+      color: var(--text-dim); min-height: 60px;
+    }
+    .status-log .log-line { animation: fadeIn 0.3s ease; }
+    .status-log .log-line.gold { color: var(--gold); }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    /* ─── STORYBOARD CANVAS ─── */
+    .canvas {
+      padding: 3rem;
+      display: flex; flex-direction: column; gap: 0; overflow-y: auto;
+    }
+
+    .empty-state {
+      margin: auto;
+      text-align: center; opacity: 0.3;
+    }
+    .empty-state .empty-icon {
+      font-size: 3rem; margin-bottom: 1rem; display: block;
+      font-style: italic; font-weight: 300; color: var(--gold);
+    }
+    .empty-state p {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--text-dim);
+    }
+
+    /* ─── PANEL ─── */
+    .panel {
+      display: grid; grid-template-columns: 60px 1fr;
+      gap: 0; margin-bottom: 0;
+      animation: panelReveal 0.6s ease both;
+    }
+    .panel + .panel .panel-body { border-top: none; }
+
+    @keyframes panelReveal {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .panel-number {
+      border: 1px solid var(--border);
+      border-right: none;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start;
+      padding-top: 1.5rem; gap: 0.3rem;
+      background: var(--surface);
+    }
+    .panel-number span {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+      color: var(--text-dim); writing-mode: vertical-rl;
+      text-transform: uppercase; transform: rotate(180deg);
+    }
+    .panel-num-digit {
+      font-family: var(--mono); font-size: 11px; color: var(--gold);
+    }
+
+    .panel-body {
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .panel-image-wrap {
+      width: 100%; aspect-ratio: 16/9;
+      background: var(--surface2);
+      position: relative; overflow: hidden;
+    }
+
+    .panel-image-wrap img {
+      width: 100%; height: 100%; object-fit: cover;
+      display: block;
+      transition: transform 0.6s ease;
+    }
+    .panel-image-wrap:hover img { transform: scale(1.02); }
+
+    .panel-loading {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1rem;
+    }
+    .loader-bar {
+      width: 120px; height: 1px; background: var(--border);
+      position: relative; overflow: hidden;
+    }
+    .loader-bar::after {
+      content: ''; position: absolute; top: 0; left: -100%;
+      width: 100%; height: 100%; background: var(--gold);
+      animation: sweep 1.4s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%   { left: -100%; }
+      50%  { left: 100%; }
+      100% { left: 100%; }
+    }
+    .loader-label {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--text-dim);
+    }
+
+    .panel-caption {
+      padding: 1.2rem 1.5rem;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1rem; border-top: 1px solid var(--border);
+    }
+    .caption-block label {
+      font-family: var(--mono); font-size: 8px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--gold);
+      display: block; margin-bottom: 0.4rem;
+    }
+    .caption-text {
+      font-size: 0.9rem; line-height: 1.55; color: var(--text-mid);
+      font-style: italic;
+    }
+    .prompt-text {
+      font-family: var(--mono); font-size: 9px; line-height: 1.7;
+      color: var(--text-dim);
+    }
+
+    /* ─── PANEL SKELETON (loading state) ─── */
+    .panel-skeleton {
+      display: grid; grid-template-columns: 60px 1fr;
+      margin-bottom: 0; opacity: 0.5;
+    }
+    .panel-skeleton + .panel-skeleton .skel-body { border-top: none; }
+    .skel-num {
+      border: 1px solid var(--border); border-right: none;
+      background: var(--surface);
+    }
+    .skel-body { border: 1px solid var(--border); background: var(--surface); }
+    .skel-img { width: 100%; aspect-ratio: 16/9; background: var(--surface2); }
+    .skel-cap {
+      padding: 1.2rem 1.5rem; height: 80px;
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--surface) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* ─── SCROLLBAR ─── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">PV</div>
+  <div class="logo-text">
+    <h1>Pitch <span>Visualizer</span></h1>
+    <p>Narrative Intelligence · Visual Storyboarding</p>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="field-group">
+      <label>Narrative Input</label>
+      <textarea id="narrative" placeholder="Paste your pitch narrative here — a customer success story, product overview, or sales script. 3–8 sentences work best."></textarea>
+    </div>
+
+    <div class="field-group">
+      <label>Visual Style</label>
+      <div class="style-grid">
+        <button class="style-btn active" data-style="cinematic photorealism, 35mm film, dramatic lighting">Cinematic</button>
+        <button class="style-btn" data-style="digital concept art, vibrant colors, highly detailed illustration">Concept Art</button>
+        <button class="style-btn" data-style="minimalist editorial photography, clean, architectural">Editorial</button>
+        <button class="style-btn" data-style="watercolor illustration, soft brush strokes, artistic, painterly">Watercolor</button>
+        <button class="style-btn" data-style="noir black and white photography, high contrast, moody shadows">Noir</button>
+        <button class="style-btn" data-style="futuristic sci-fi render, neon accents, cyberpunk atmosphere">Sci-Fi</button>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="generateBtn" onclick="startGeneration()">
+      <span>Generate Storyboard</span>
+    </button>
+
+    <div class="status-log" id="statusLog">
+      <div class="log-line" style="color: var(--text-dim);">Ready. Awaiting narrative input.</div>
+    </div>
+  </aside>
+
+  <section class="canvas" id="canvas">
+    <div class="empty-state" id="emptyState">
+      <span class="empty-icon">◈</span>
+      <p>Your storyboard will appear here</p>
+    </div>
+  </section>
+</main>
+
+<script>
+  let selectedStyle = "cinematic photorealism, 35mm film, dramatic lighting";
+
+  document.querySelectorAll('.style-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedStyle = btn.dataset.style;
+    });
+  });
+
+  function log(msg, gold = false) {
+    const el = document.getElementById('statusLog');
+    const line = document.createElement('div');
+    line.className = 'log-line' + (gold ? ' gold' : '');
+    line.textContent = '› ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+    // keep last 8 lines
+    while (el.children.length > 8) el.removeChild(el.firstChild);
+  }
+
+  function clearLog() {
+    document.getElementById('statusLog').innerHTML = '';
+  }
+
+  function createLoadingPanel(index, total) {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = `panel-${index}`;
+    panel.innerHTML = `
+      <div class="panel-number">
+        <span class="panel-num-digit">${String(index+1).padStart(2,'0')}</span>
+        <span>Scene</span>
+      </div>
+      <div class="panel-body">
+        <div class="panel-image-wrap">
+          <div class="panel-loading">
+            <div class="loader-bar"></div>
+            <div class="loader-label" id="panel-status-${index}">Initializing...</div>
+          </div>
+        </div>
+        <div class="panel-caption">
+          <div class="caption-block">
+            <label>Narrative</label>
+            <div class="caption-text" id="panel-seg-${index}">—</div>
+          </div>
+          <div class="caption-block">
+            <label>Visual Prompt</label>
+            <div class="prompt-text" id="panel-prompt-${index}">Generating...</div>
+          </div>
+        </div>
+      </div>
+    `;
+    return panel;
+  }
+
+  function updatePanelStatus(index, msg) {
+    const el = document.getElementById(`panel-status-${index}`);
+    if (el) el.textContent = msg;
+  }
+
+  function updatePanelPrompt(index, segment, prompt) {
+    const segEl = document.getElementById(`panel-seg-${index}`);
+    const prmEl = document.getElementById(`panel-prompt-${index}`);
+    if (segEl) segEl.textContent = segment;
+    if (prmEl) prmEl.textContent = prompt;
+  }
+
+  function finalizePanel(index, segment, prompt, imageData) {
+    const panel = document.getElementById(`panel-${index}`);
+    if (!panel) return;
+    const imgWrap = panel.querySelector('.panel-image-wrap');
+    imgWrap.innerHTML = `<img src="${imageData}" alt="Panel ${index+1}" loading="lazy" />`;
+    updatePanelPrompt(index, segment, prompt);
+  }
+
+  function markPanelError(index, msg) {
+    const el = document.getElementById(`panel-status-${index}`);
+    if (el) { el.textContent = 'Error: ' + msg; el.style.color = '#c0392b'; }
+  }
+
+  async function startGeneration() {
+    const text = document.getElementById('narrative').value.trim();
+    if (!text) { log('Please enter a narrative first.'); return; }
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    clearLog();
+    log('Segmenting narrative...');
+
+    // Clear canvas
+    const canvas = document.getElementById('canvas');
+    canvas.innerHTML = '';
+    document.getElementById('emptyState') && null; // removed
+
+    try {
+      const resp = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, style: selectedStyle })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        log('Error: ' + (err.error || 'Unknown'), false);
+        btn.disabled = false;
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let panelsCreated = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const lines = decoder.decode(value).split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          try {
+            const event = JSON.parse(line);
+
+            if (event.type === 'status') {
+              if (!panelsCreated && event.total) {
+                // Create all panel placeholders upfront
+                for (let i = 0; i < event.total; i++) {
+                  canvas.appendChild(createLoadingPanel(i, event.total));
+                }
+                panelsCreated = true;
+              }
+              updatePanelStatus(event.panel, event.message);
+              log(`Panel ${event.panel + 1}: ${event.message}`);
+            }
+
+            if (event.type === 'prompt_ready') {
+              updatePanelStatus(event.panel, 'Rendering image...');
+              updatePanelPrompt(event.panel, event.segment, event.enhanced_prompt);
+              log(`Panel ${event.panel + 1}: Prompt crafted ✓`, true);
+            }
+
+            if (event.type === 'panel_ready') {
+              finalizePanel(event.panel, event.segment, event.enhanced_prompt, event.image);
+              log(`Panel ${event.panel + 1}: Image rendered ✓`, true);
+            }
+
+            if (event.type === 'error') {
+              markPanelError(event.panel, event.message);
+              log(`Panel ${event.panel + 1} error: ${event.message}`);
+            }
+
+            if (event.type === 'done') {
+              log(`Storyboard complete — ${event.total} panels generated.`, true);
+            }
+          } catch(e) { /* skip malformed */ }
+        }
+      }
+    } catch (err) {
+      log('Network error: ' + err.message);
+    }
+
+    btn.disabled = false;
+  }
+
+  // Enter key shortcut (Ctrl+Enter)
+  document.getElementById('narrative').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) startGeneration();
+  });
+</script>
+
+</body>
+</html>
